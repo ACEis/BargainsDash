@@ -1,7 +1,7 @@
 package cn.edu.cqu.response;
 
 /**
- *
+ * 通用的响应结果类
  */
 public class CommonReturnType {
 
@@ -13,7 +13,7 @@ public class CommonReturnType {
     private Object data;
 
 
-    //定义一个通用的创建方法
+    //定义一个通用的用于创建响应结果对象的创建方法
     public static CommonReturnType create(Object result) {
         return CommonReturnType.create(result, "success");
     }

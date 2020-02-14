@@ -1,6 +1,7 @@
 package cn.edu.cqu.DAO;
 
 import cn.edu.cqu.dataobject.ItemStockDO;
+import org.apache.ibatis.annotations.Param;
 
 public interface ItemStockDOMapper {
     /**
@@ -43,4 +44,5 @@ public interface ItemStockDOMapper {
      * @mbg.generated Mon Feb 10 17:30:29 GMT+08:00 2020
      */
     int updateByPrimaryKey(ItemStockDO record);
+    int decreaseStock(@Param("itemId") Integer itemId, @Param("amount") Integer amount);
 }

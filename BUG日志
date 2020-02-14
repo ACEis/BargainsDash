@@ -1,0 +1,38 @@
+BUG日志
+1.注册页面点击按钮网页报错：注册失败，原因是参数不正确
+解决：Usercontroller中没有设置Usermodel的Age参数。
+
+2.注册的telephone可以重复
+解决：为telephone设置唯一索引（navicat中设计表）
+
+3.登录失败，网页报错手机号或密码错误
+解决：断点显示userDO为null，发现selectByTelephone中数据栏没有由id改为telephone
+
+4.网页提示创建商品成功，但是数据库中不存在商品描述。
+解决：断点显示插入前itemModel的description存在，但是convert之后DO不存在该值。查看DO发现DO定义字段的错误拼写为“descption”。由于DO由mybatis自动生成，推测原因为数据库的字段拼写错误。查看后确实错误，更改后重新生成DO和mapper文件。
+后续问题：
+1.安全删除导致引入库失败，重新导入DO类解决
+2.mapper不存在selectByItemId，重新写入该方法解决
+3.网页报错，插入数据库失败。原因为不存在自动生成的id字段。重新写入keyProperty="id" useGeneratedKeys="true"解决。
+
+5.访问商品详情页报错，有此id显示为whitepage，其他返回null。
+断点发现itemModel正常，转化为itemVO为null，查看后发现为itemVO的set，get方法未定义，copyProperties出错。实现后解决。
+
+6.商品详情页前端报错，查看开发者工具itemVO未定义。
+解决：查看发现源代码拼写错误。改正后解决。
+7.前端实现跳转失败。点击后没有反应。
+解决：查看源代码发现，对应元素的id不正确，拼接字符串出错。
+
+8.前端报错{"timestamp":"2020-02-13T05:46:39.338+0000","status":404,"error":"Not Found","message":"No message available","path":"/order/createorder"}。正确显示应该为“用户未登录”
+解决：断点查看ordercontroller分支跳转正常，抛出预期异常。断点查看basecontroller执行正常，正确收集到异常信息。断点查看前端跳转错误，预期跳转success，实际跳转error。上网查询发现可能是responsebody注解未添加。查看发现basecontroller未添加该注解，添加后解决。
+
+9.时区问题。前端显示查询到的时间比数据库中数据多8小时。
+解决：
+推测MySQL时区不正确，查询mysql时间：show variables like ‘%time_zone%’;发现与网上大部分回答不同，设置正常，更改set global time_zone ‘+8:00’;后没有解决。
+推测使用joda time包导致错误，更改spring配置文件application.xml,添加jadira.usertype.autoRegisterUserTypes=true
+.jadira.usertype.javaZone=Asia/Shanghai
+jadira.usertype.databaseZone=Asia/Shanghai后没有解决。
+真正原因是MySQL使用东八区而Tomcat Java使用UTC进行时间处理，导致MySQL的datetime类型的值查询后转到Java Bean，值多了8小时。在jdbc连接后加上serverTimezone=Asia/Shanghai后解决。
+
+10.下单成功，数据库中保存了单价为秒杀价格，但是没有秒杀活动id
+解决：查看发现insertselective(orderDO)报错。断点显示ordermodel中存在promoid，而orderDO消失，convert中使用bean.copyproperties并没有将promoid赋值。查看orderDO发现由于promoid没有set，get方法，构造函数也没有传入这个字段，导致错误。都添加后解决。

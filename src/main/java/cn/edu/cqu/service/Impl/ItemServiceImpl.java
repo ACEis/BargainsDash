@@ -7,7 +7,9 @@ import cn.edu.cqu.dataobject.ItemStockDO;
 import cn.edu.cqu.error.BusinessException;
 import cn.edu.cqu.error.EmBusinessError;
 import cn.edu.cqu.service.ItemService;
+import cn.edu.cqu.service.PromoService;
 import cn.edu.cqu.service.model.ItemModel;
+import cn.edu.cqu.service.model.PromoModel;
 import cn.edu.cqu.validator.ValidationResult;
 import cn.edu.cqu.validator.ValidatorImpl;
 import org.springframework.beans.BeanUtils;
@@ -30,6 +32,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private ItemStockDOMapper itemStockDOMapper;
+
+    @Autowired
+    private PromoService promoService;
 
     private ItemDO convertItemModelFromModel(ItemModel itemModel) {
         if (itemModel == null) {
@@ -94,9 +99,35 @@ public class ItemServiceImpl implements ItemService {
         if (itemDO == null) {
             return null;
         }
+
+        //操作获得库存信息
         ItemStockDO itemStockDO = itemStockDOMapper.selectByItemId(id);
+
+        //转化DO->Model
         ItemModel itemModel = convertModelFromDataObject(itemDO, itemStockDO);
+
+        //获取秒杀活动信息
+        PromoModel promoModel = promoService.getPromoByItemId(itemModel.getId());
+        if (promoModel != null && promoModel.getStatus() != 3) {
+            itemModel.setPromoModel(promoModel);
+        }
         return itemModel;
+    }
+
+    @Override
+    @Transactional
+    public boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException {
+        int affectedRow = itemStockDOMapper.decreaseStock(itemId, amount);
+        if (affectedRow > 0) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    @Transactional
+    public void increaseSales(Integer itemId, Integer amount) throws BusinessException {
+        itemDOMapper.increaseSales(itemId, amount);
     }
 
     private ItemModel convertModelFromDataObject(ItemDO itemDO, ItemStockDO itemStockDO) {

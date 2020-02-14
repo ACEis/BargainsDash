@@ -5,6 +5,7 @@ import cn.edu.cqu.error.EmBusinessError;
 import cn.edu.cqu.response.CommonReturnType;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import javax.servlet.http.HttpServletRequest;
@@ -18,11 +19,12 @@ public class BaseController {
     //定义exceptionhandler解决未被controller层吸收的exception
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.OK)
-    public Object handlerException(HttpServletRequest request, Exception ex) {
+    @ResponseBody
+    public CommonReturnType handlerException(HttpServletRequest request, Exception ex) {
         Map<String, Object> responseData = new HashMap<>();
         if (ex instanceof BusinessException) {
             BusinessException businessException = (BusinessException) ex;
-            responseData.put("erCode", businessException.getErrCode());
+            responseData.put("errCode", businessException.getErrCode());
             responseData.put("errMsg", businessException.getErrMsg());
         } else {
             responseData.put("errCode", EmBusinessError.UNKNOWN_ERROR.getErrCode());

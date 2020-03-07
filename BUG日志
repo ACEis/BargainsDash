@@ -36,3 +36,19 @@ jadira.usertype.databaseZone=Asia/Shanghai后没有解决。
 
 10.下单成功，数据库中保存了单价为秒杀价格，但是没有秒杀活动id
 解决：查看发现insertselective(orderDO)报错。断点显示ordermodel中存在promoid，而orderDO消失，convert中使用bean.copyproperties并没有将promoid赋值。查看orderDO发现由于promoid没有set，get方法，构造函数也没有传入这个字段，导致错误。都添加后解决。
+
+11.网页无法处理404,405问题
+405：（method not allowed客户端请求的方法不被允许）可能是url绑定路由问题。由于在某些网页中强制要求url带参(例如使用get方法访问时要在url中添加商品id)，没有则会报错。
+404：（Not Found服务器没有找到需要的资源）。
+面对这种问题，新建GlobalException，添加@ControllerAdvice使其利用AOP特性处理所有异常。此外，为了处理没有被控制器映射而抛出的异常，需要在app.properties中添加spring.mvc.throw-exception-if-no-handler-found=true和spring.resources.add-mappings=false
+
+12.maven下载依赖包报错501，下载依赖包过慢
+解决：将maven的settings.xml的mirror修改为https。通过File->setting->maven找到setting.xml文件。添加mirror的阿里云镜像。添加如下：
+  <mirrors>
+    <mirror>
+        <id>nexus-aliyun</id>
+        <mirrorOf>central</mirrorOf>
+        <name>Nexus aliyun</name>
+        <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+	</mirror>
+  </mirrors>

@@ -6,7 +6,7 @@
 
     <groupId>cn.edu.cqu</groupId>
     <artifactId>bargainsdash</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
 
     <name>bargainsdash</name>
     <!-- FIXME change it to the project's website -->
@@ -31,6 +31,7 @@
             <name>aliyun</name>
             <url>http://maven.aliyun.com/nexus/content/groups/public</url>
         </repository>
+
     </repositories>
 
     <dependencies>
@@ -91,6 +92,16 @@
             <version>2.9.1</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+            <version>2.0.5.RELEASE</version>
+        </dependency>
 
     </dependencies>
 
@@ -157,7 +168,7 @@
                             <id>mybatis generator</id>
                             <phase>package</phase>
                             <goals>
-                                <goal>generator</goal>
+                                <goal>generate</goal>
                             </goals>
                         </execution>
                     </executions>
@@ -176,9 +187,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>8</source>
-                    <target>8</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

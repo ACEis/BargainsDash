@@ -3,7 +3,9 @@ package cn.edu.cqu.controller;
 import cn.edu.cqu.controller.viewobject.ItemVO;
 import cn.edu.cqu.error.BusinessException;
 import cn.edu.cqu.response.CommonReturnType;
+import cn.edu.cqu.service.CacheService;
 import cn.edu.cqu.service.ItemService;
+import cn.edu.cqu.service.PromoService;
 import cn.edu.cqu.service.model.ItemModel;
 import org.joda.time.format.DateTimeFormat;
 import org.springframework.beans.BeanUtils;
@@ -27,6 +29,12 @@ public class ItemController extends BaseController {
 
     @Autowired
     private RedisTemplate redisTemplate;
+
+    @Autowired
+    private CacheService cacheService;
+
+    @Autowired
+    private PromoService promoService;
 
     @RequestMapping(value = "/create", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED})
     @ResponseBody
@@ -53,15 +61,22 @@ public class ItemController extends BaseController {
     @ResponseBody
     public CommonReturnType getItem(@RequestParam(name = "id") Integer id) {
 
-        //根据商品ID到redis内获取
-        ItemModel itemModel = (ItemModel) redisTemplate.opsForValue().get("item_" + id);
+        ItemModel itemModel = null;
 
-        //redis内若不存在对应的itemModel，从itemservice中获取
+        //先从本地缓存获取
+        itemModel = (ItemModel) cacheService.getFromCommonCache("item_" + id);
         if (itemModel == null) {
-            itemModel = itemService.getItemById(id);
-            //设置itemmodel到redis内
-            redisTemplate.opsForValue().set("item_" + id, itemModel);
-            redisTemplate.expire("item_" + id, 10, TimeUnit.MINUTES);
+            //根据商品ID到redis内获取
+            itemModel = (ItemModel) redisTemplate.opsForValue().get("item_" + id);
+
+            //redis内若不存在对应的itemModel，从itemservice中获取
+            if (itemModel == null) {
+                itemModel = itemService.getItemById(id);
+                //设置itemmodel到redis内
+                redisTemplate.opsForValue().set("item_" + id, itemModel);
+                redisTemplate.expire("item_" + id, 10, TimeUnit.MINUTES);
+            }
+            cacheService.setCommonCache("item_" + id, itemModel);
         }
         ItemVO itemVO = convertFromItemModel(itemModel);
         return CommonReturnType.create(itemVO);
@@ -94,5 +109,12 @@ public class ItemController extends BaseController {
             itemVO.setPromoStatus(3);
         }
         return itemVO;
+    }
+
+    @RequestMapping(value = "/publishpromo", method = {RequestMethod.GET})
+    @ResponseBody
+    public CommonReturnType publishpromo(@RequestParam(name = "id") Integer id) {
+        promoService.publishPromo(id);
+        return CommonReturnType.create(null);
     }
 }

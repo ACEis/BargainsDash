@@ -6,7 +6,7 @@
 
     <groupId>cn.edu.cqu</groupId>
     <artifactId>bargainsdash</artifactId>
-    <version>1.1-SNAPSHOT</version>
+    <version>1.2-SNAPSHOT</version>
 
     <name>bargainsdash</name>
     <!-- FIXME change it to the project's website -->
@@ -101,6 +101,18 @@
             <groupId>org.springframework.session</groupId>
             <artifactId>spring-session-data-redis</artifactId>
             <version>2.0.5.RELEASE</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>18.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.rocketmq</groupId>
+            <artifactId>rocketmq-client</artifactId>
+            <version>4.3.0</version>
         </dependency>
 
     </dependencies>

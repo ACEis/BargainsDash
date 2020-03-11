@@ -86,7 +86,13 @@
                enableSelectByExample="false" enableDeleteByPrimaryKey="false">
         </table>
         -->
+        <!--
         <table tableName="promo" domainObjectName="PromoDO" enableCountByExample="false"
+               enableUpdateByExample="false" enableDeleteByExample="false"
+               enableSelectByExample="false" enableDeleteByPrimaryKey="false">
+        </table>
+        -->
+        <table tableName="stock_log" domainObjectName="StockLogDO" enableCountByExample="false"
                enableUpdateByExample="false" enableDeleteByExample="false"
                enableSelectByExample="false" enableDeleteByPrimaryKey="false">
         </table>

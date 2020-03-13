@@ -7,8 +7,8 @@
 
 由于本图只是示意，与实际情况有以下不符：
 1. 本系统由于经费限制，仅使用了四台2核8G内存的阿里云服务器。具体部署如下：
-* redis,MySQL,nameserver,broker均部署在同一台数据库服务器(DataBase001)。
-* 代理服务器和静态资源存储部署在同一台代理服务器(Nginx001)。
+  * redis,MySQL,nameserver,broker均部署在同一台数据库服务器(DataBase001)。
+  * 代理服务器和静态资源存储部署在同一台代理服务器(Nginx001)。
 1. 应用服务器有两台(bargainsdash001,bargainsdash002)，并未区分生产者和消费者的角色，均部署了具有完整功能的JAR包。
 1. 大多数服务并不涉及频繁的写操作，不存在Redis和MySQL的同步问题，因此不需采用RocketMQ的集群部署。
 

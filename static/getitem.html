@@ -66,6 +66,13 @@
         </button>
     </div>
 
+    <div id="verifyDiv" style="display: none;" class="form-actions">
+        <img src=""/>
+        <input type="text" id="verifyContent" value=""/>
+        <button class="btn blue" id="verifyButton" type="submit">
+            验证
+        </button>
+    </div>
 
 </div>
 
@@ -76,53 +83,85 @@
     var g_itemVO = {};
 
     jQuery(document).ready(function () {
-        $("#createorder").on("click", function () {
+        $("#verifyButton").on("click", function () {
             var token = window.localStorage["token"];
-            if (token == null) {
-                alert("没有登录，不能下单");
-                window.location.href="login.html";
-                return false;
-            }
             $.ajax({
                 type: "POST",
-                contentType:"application/x-www-form-urlencoded",
-                url: "http://"+g_host+"/order/createorder?token="+token,
+                contentType: "application/x-www-form-urlencoded",
+                url: "http://" + g_host + "/order/generatetoken?token=" + token,
                 data: {
-                    "itemId":g_itemVO.id,
-                    "amount":1,
-                    "promoId":g_itemVO.promoId
+                    "itemId": g_itemVO.id,
+                    "promoId": g_itemVO.promoId,
+                    "verifyCode": $("#verifyContent").val()
                 },
                 xhrFields: {withCredentials: true},
                 success: function (data) {
                     if (data.status == "success") {
-                        alert("下单成功");
-                        window.location.reload();
+                        var promoToken = data.data;
+                        $.ajax({
+                            type: "POST",
+                            contentType: "application/x-www-form-urlencoded",
+                            url: "http://" + g_host + "/order/createorder?token=" + token,
+                            data: {
+                                "itemId": g_itemVO.id,
+                                "amount": 1,
+                                "promoId": g_itemVO.promoId,
+                                "promoToken": promoToken
+                            },
+                            xhrFields: {withCredentials: true},
+                            success: function (data) {
+                                if (data.status == "success") {
+                                    alert("下单成功");
+                                    window.location.reload();
+                                } else {
+                                    alert("下单失败，原因是" + data.data.errMsg);
+                                    if (data.data.errCode == 20003) {
+                                        window.location.href = "login.html";
+                                    }
+                                }
+                            },
+                            error: function (data) {
+                                alert("下单失败,原因为" + data.responseText);
+                            }
+
+                        });
                     } else {
-                        alert("下单失败，原因是" + data.data.errMsg);
+                        alert("获取令牌失败，原因是" + data.data.errMsg);
                         if (data.data.errCode == 20003) {
-                            window.location.href="login.html";
+                            window.location.href = "login.html";
                         }
                     }
                 },
                 error: function (data) {
-                    alert("下单失败,原因为" + data.responseText);
+                    alert("获取令牌失败,原因为" + data.responseText);
                 }
-
             });
+        });
+        $("#createorder").on("click", function () {
+            var token = window.localStorage["token"];
+            if (token == null) {
+                alert("没有登录，不能下单");
+                window.location.href = "login.html";
+                return false;
+            }
+            $("#verifyDiv img").attr("src", "http://" + g_host + "/order/generateverifycode?token=" + token);
+            $("#verifyDiv").show();
+
+
         });
         //获取商品详情
         $.ajax({
             type: "GET",
             url: "http://localhost:8090/item/get",
             data: {
-                "id":getParam("id"),
+                "id": getParam("id"),
             },
             xhrFields: {withCredentials: true},
             success: function (data) {
                 if (data.status == "success") {
                     g_itemVO = data.data;
                     reloadDom();
-                    setInterval(reloadDom,1000);
+                    setInterval(reloadDom, 1000);
                 } else {
                     alert("获取信息失败，原因是" + data.data.errMsg);
                 }
@@ -142,8 +181,8 @@
         $("#imgUrl").attr("src", g_itemVO.imgUrl);
         $("#sales").text(g_itemVO.sales);
         if (g_itemVO.promoStatus == 1) {
-            var startTime = g_itemVO.promoStartDate.replace(new RegExp("-","gm"),"/");
-            startTime  = (new Date(startTime)).getTime();
+            var startTime = g_itemVO.promoStartDate.replace(new RegExp("-", "gm"), "/");
+            startTime = (new Date(startTime)).getTime();
             var nowTime = Date.parse(new Date());
             var delta = (startTime - nowTime) / 1000;
 
@@ -155,7 +194,7 @@
             $("#promoStartDate").text("秒杀活动将于 " + g_itemVO.promoStartDate + " 开始售卖 倒计时：" + delta + "秒");
             $("#promoPrice").text((g_itemVO.promoPrice));
             $("#createorder").attr("disabled", true);
-        }else if (g_itemVO.promoStatus == 2) {
+        } else if (g_itemVO.promoStatus == 2) {
             $("#promoStartDate").text("秒杀正在进行中");
             $("#promoPrice").text((g_itemVO.promoPrice));
             $("#createorder").attr("disabled", false);

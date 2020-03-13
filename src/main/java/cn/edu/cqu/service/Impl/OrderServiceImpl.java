@@ -52,27 +52,27 @@ public class OrderServiceImpl implements OrderService {
 
         //1.校验下单
         ItemModel itemModel = itemService.getItemByIdInCache(itemId);
-        if (itemModel == null) {
-            throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "商品信息不存在");
-        }
-
-        UserModel userModel = userService.getUserByIdInCache(userId);
-        if (userModel == null) {
-            throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "用户信息不存在");
-        }
+//        if (itemModel == null) {
+//            throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "商品信息不存在");
+//        }
+//
+//        UserModel userModel = userService.getUserByIdInCache(userId);
+//        if (userModel == null) {
+//            throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "用户信息不存在");
+//        }
         if (amount <= 0 || amount > 99) {
             throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "数量信息不正确");
         }
 
         //校验活动信息
-        if (promoId != null) {
-            //校验对应活动是否存在对应商品
-            if (itemModel.getPromoModel() == null || promoId.intValue() != itemModel.getPromoModel().getId()) {
-                throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "活动信息不正确");
-            } else if (itemModel.getPromoModel().getStatus().intValue() != 2) {
-                throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "活动信息不正确");
-            }
-        }
+//        if (promoId != null) {
+//            //校验对应活动是否存在对应商品
+//            if (itemModel.getPromoModel() == null || promoId.intValue() != itemModel.getPromoModel().getId()) {
+//                throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "活动信息不正确");
+//            } else if (itemModel.getPromoModel().getStatus().intValue() != 2) {
+//                throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "活动信息不正确");
+//            }
+//        }
 
         //2.落单减库存Redis
         boolean result = itemService.decreaseStock(itemId, amount);

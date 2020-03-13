@@ -1,31 +1,30 @@
-BUG日志
 1.注册页面点击按钮网页报错：注册失败，原因是参数不正确
 解决：Usercontroller中没有设置Usermodel的Age参数。
-
+ 
 2.注册的telephone可以重复
 解决：为telephone设置唯一索引（navicat中设计表）
-
+ 
 3.登录失败，网页报错手机号或密码错误
 解决：断点显示userDO为null，发现selectByTelephone中数据栏没有由id改为telephone
-
+ 
 4.网页提示创建商品成功，但是数据库中不存在商品描述。
 解决：断点显示插入前itemModel的description存在，但是convert之后DO不存在该值。查看DO发现DO定义字段的错误拼写为“descption”。由于DO由mybatis自动生成，推测原因为数据库的字段拼写错误。查看后确实错误，更改后重新生成DO和mapper文件。
 后续问题：
 1.安全删除导致引入库失败，重新导入DO类解决
 2.mapper不存在selectByItemId，重新写入该方法解决
 3.网页报错，插入数据库失败。原因为不存在自动生成的id字段。重新写入keyProperty="id" useGeneratedKeys="true"解决。
-
+ 
 5.访问商品详情页报错，有此id显示为whitepage，其他返回null。
 断点发现itemModel正常，转化为itemVO为null，查看后发现为itemVO的set，get方法未定义，copyProperties出错。实现后解决。
-
+ 
 6.商品详情页前端报错，查看开发者工具itemVO未定义。
 解决：查看发现源代码拼写错误。改正后解决。
 7.前端实现跳转失败。点击后没有反应。
 解决：查看源代码发现，对应元素的id不正确，拼接字符串出错。
-
+ 
 8.前端报错{"timestamp":"2020-02-13T05:46:39.338+0000","status":404,"error":"Not Found","message":"No message available","path":"/order/createorder"}。正确显示应该为“用户未登录”
 解决：断点查看ordercontroller分支跳转正常，抛出预期异常。断点查看basecontroller执行正常，正确收集到异常信息。断点查看前端跳转错误，预期跳转success，实际跳转error。上网查询发现可能是responsebody注解未添加。查看发现basecontroller未添加该注解，添加后解决。
-
+ 
 9.时区问题。前端显示查询到的时间比数据库中数据多8小时。
 解决：
 推测MySQL时区不正确，查询mysql时间：show variables like ‘%time_zone%’;发现与网上大部分回答不同，设置正常，更改set global time_zone ‘+8:00’;后没有解决。
@@ -33,15 +32,15 @@ BUG日志
 .jadira.usertype.javaZone=Asia/Shanghai
 jadira.usertype.databaseZone=Asia/Shanghai后没有解决。
 真正原因是MySQL使用东八区而Tomcat Java使用UTC进行时间处理，导致MySQL的datetime类型的值查询后转到Java Bean，值多了8小时。在jdbc连接后加上serverTimezone=Asia/Shanghai后解决。
-
+ 
 10.下单成功，数据库中保存了单价为秒杀价格，但是没有秒杀活动id
 解决：查看发现insertselective(orderDO)报错。断点显示ordermodel中存在promoid，而orderDO消失，convert中使用bean.copyproperties并没有将promoid赋值。查看orderDO发现由于promoid没有set，get方法，构造函数也没有传入这个字段，导致错误。都添加后解决。
-
+ 
 11.网页无法处理404,405问题
 405：（method not allowed客户端请求的方法不被允许）可能是url绑定路由问题。由于在某些网页中强制要求url带参(例如使用get方法访问时要在url中添加商品id)，没有则会报错。
 404：（Not Found服务器没有找到需要的资源）。
 面对这种问题，新建GlobalException，添加@ControllerAdvice使其利用AOP特性处理所有异常。此外，为了处理没有被控制器映射而抛出的异常，需要在app.properties中添加spring.mvc.throw-exception-if-no-handler-found=true和spring.resources.add-mappings=false
-
+ 
 12.maven下载依赖包报错501，下载依赖包过慢
 解决：将maven的settings.xml的mirror修改为https。通过File->setting->maven找到setting.xml文件。添加mirror的阿里云镜像。添加如下：
   <mirrors>
@@ -52,3 +51,55 @@ jadira.usertype.databaseZone=Asia/Shanghai后没有解决。
         <url>https://maven.aliyun.com/nexus/content/groups/public</url>
 	</mirror>
   </mirrors>
+ 
+13.yum install mariadb-server报错，查看报错信息为mariadb与mysql依赖包冲突
+解决：添加参数—allowerasing允许删除冲突包
+ 
+14.安装openresty报错src/os/unix/ngx_user.c: 在函数‘ngx_libc_crypt’中:
+src/os/unix/ngx_user.c:36:7: 错误：‘struct crypt_data’没有名为‘current_salt’的成员
+cd.current_salt[0] = ~salt[0];
+解决：//tmp/openresty-1.13.6.2/build/nginx1.13.6/src/os/unix/ngx_user.c中注释掉cd.current_salt[0] = ~salt[0];
+ 
+15.修改gethost.js，访问显示地址不变
+解决：问题的发现话费很长时间。首先，修改gethost是因为阿里云主机的公网ip一直在变。不变的原因是因为浏览器缓存了g_host数据。因此在nginx.conf添加location ~ .*/.(css|js|swf|php|htm|html)$ {
+add_header Cache-Control 'no-store';
+add_header Pragma no-cache;
+}强制浏览器不缓存前端资源，问题就解决了。
+ 
+今日其余小问题：
+1.前端报错50x。原因为没有开启nginx，进入//usr/local/openresty/nginx使用sbin/nginx -c conf/nginx.conf开启服务。
+2.前端资源未更新导致了一些错误。
+
+16.jmeter启动报错：
+Server failed to start: java.rmi.server.ExportException: Listen failed on port:
+0; nested exception is:
+        java.io.FileNotFoundException: rmi_keystore.jks (系统找不到指定的文件。)
+ 
+An error occurred: Listen failed on port: 0; nested exception is:
+        java.io.FileNotFoundException: rmi_keystore.jks (系统找不到指定的文件。)
+errorlevel=1
+
+解决：在目录\apache-jmeter-5.0\bin下，用Notepad++编辑器打开名为jmeter.properties的文件找到server.rmi.ssl.disable=false，改为true，并把前面的#去掉
+
+17.nginx加入lua脚本后运行报错400，查看错误日志：
+2020/03/09 22:11:51 [error] 1496#0: *4 lua entry thread aborted: runtime error: /usr/local/openresty/nginx/../lua/itemsharedic.lua:16: attempt to index field 'rep' (a nil value)
+stack traceback:
+coroutine 0:
+	/usr/local/openresty/nginx/../lua/itemsharedic.lua: in function </usr/local/openresty/nginx/../lua/itemsharedic.lua:1>, client: 183.213.202.231, server: localhost, request: "GET /luaitem/get?id=9 HTTP/1.1", host: "39.100.5.0"
+2020/03/09 22:11:51 [error] 1496#0: *4 open() "/usr/local/openresty/nginx/html/50x.html" failed (2: No such file or directory), client: 183.213.202.231, server: localhost, request: "GET /luaitem/get?id=9 HTTP/1.1", host: "39.100.5.0"
+解决：rep->req
+
+18.rocketmq broker启动报错error='Cannot allocate memory' (errno=12)
+修改runbroker.sh，-Xms8g -Xmn8g -Xmn4g -> -Xms512m -Xmn512m -Xmn128m
+
+19.rocketmq创建topic报错，org.apache.rocketmq.tools.command.SubCommandException: UpdateTopicSubCommand command failed
+解决：修改tools.sh，修改Java文件路径JAVA_OPT="${JAVA_OPT} -Djava.ext.dirs=${BASE_DIR}/lib:${JAVA_HOME}/jre/lib/ext:${JAVA_HOME}/lib/ext:/usr/java/jdk1.8.0_65/jre/lib/ext"
+
+20.rocketmq生产者报错，org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException: sendDefaultImpl call timeout
+解决：将localhost替换为IP，添加安全组端口，修改broker.conf添加brokerIP1，添加创建topic语句。难以确定原因但是问题解决。
+
+21.启动云端redis-cli报错，Could not connect to Redis at 127.0.0.1:6379: Connection refused。
+解决：修改redis.conf，在bind前添加#。
+
+22.启动rocketmq，使用本地项目连接时报错：closeChannel: close the connection to remote address[] result: true。
+解决：配置文件未修改对应IP。

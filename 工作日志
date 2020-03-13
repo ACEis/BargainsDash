@@ -1,0 +1,325 @@
+1.UserController采用/register映射注册函数，该函数负责接收请求参数（注册信息），包装成UserModel，调用UserService中的register函数。UserService中register将UserModel转化为UserDO，UserPwdDO，使用insertSelective插入数据库。
+Controller的register获取Session中记录的telephone和otpCode中并比对请求参数otpCode是否正确。生成UserModel。返回CommonReturnType。
+ 
+UserService中register函数使用BeanUtils的copyproperties将UserModel转化为UserDO，使用UserDOMapper的insertSelective插入数据库中。判断UserModel和其中字段不为空，UserDO和UserPwdDO是两个DO，因为要分别插入两个数据库，需要事务注解）
+ 
+2.新建register.html，将获取输入数据，包装成json数据包发送给后端。前端做非空校验。
+直接使用MD5encoder.encode对加密长度有限，需要MessageDigest.getInstance("MD5")，base64Encoder.encode(md5.digest)。
+ 
+Ajax请求使用crossorigin注解无法跨域共享session信息，需要后端设置allowCredentials和allowedHeaders，前端设置xhrfields才能共享session信息
+ 
+数据库中userinfo表和userpassword表的userid不匹配，因为userid是插入userDO后数据库自动生成，需要取出id并传给userpasswordDO。所以userDOMapper中insertselective要设置keyproperties=id，useGeneratedKeys为true，同时在userService中传递userid给userPwdDO。给telephone添加唯一索引并处理DuplicatedKey异常。
+ 
+3.实现用户登录接口，UserController中添加/login映射和login函数，接收telephone和password，调用userservice中validateLogin函数。Userservice调用mapper中selectByTelephone获取UserDO。再获取UserPwdDO。用两个DO生成Model，比对加密密码，成功后返回这个UserModel。Controller添加登录凭证给Session。新建login.html实现登录按钮。获取数据，发送给后端。
+Mapper.xml中实现selectByTelephone,Mapper.java中添加映射。
+ 
+4.完善校验规则。新建validationResult.java，存放一个有错误信息的表。ValidatorImpl实现InitializingBean，在afterPropertiesSet中获取validator实例，实现validate方法，其中使用validator.validate方法获取违背校验规则的set。如果set有值则遍历set放入result。在UserModel中为字段添加需要的校验注解。在UserService中添加ValidatorImpl，调用validate方法进行校验，将结果保存到result，isHasErrors中为true时result.getErrMsg。
+@Component注解表示Spring将其作为Bean扫描到。
+ 
+5.设计商品模型。建立ItemModel.java，建立数据库表item，item_stock。使用mybatis-generator.xml生成对应DO和mapper。
+Mapper.xml中需要使用自增id。useGeneratedKeys="true" keyProperty="id"。
+ 
+6.实现商品创建。实现ItemService。定义基本函数，创建ItemServiceImpl实现函数。创建商品实现校验入参（为ItemModel添加约束注解，使用ValidatorImpl实例的validate验证itemModel，用ValidationResult收集结果，isHasError判断）。将itemModel转化为ItemDO插入数据库，获取数据库生成的id后转化为ItemStockDO插入数据库。返回插入的的ItemModel（实现getItemById，使用mapper的select方法获取两个DO，转化为Model）实现ItemController，使用Controller和RequestMapping注解。收集参数封装为Model，使用Service的创建方法，转化为VO并返回。
+ 
+7.实现商品创建。完成创建界面，获取有关参数。点击按钮发送。实现浏览。创建get的映射，调用service的getitembyid并转化为VO返回即可。
+ 
+8.实现商品列表。Itemcontroller实现list映射。Mapper实现查询全表。Service实现获取DOList，使用stream获取StockDO，封装为Model。Controller实现映射，调用service获取ModelList，转化为VOList返回。
+转化过程使用到了Java8的stream和Lambda表达式。list.stream().map(model->{转化过程}).collect(Collector.toList)。
+ 
+9.商品列表前端。使用table元素展示。ajax请求中获取listitem相应的的data（list），定义reload实现在tbody中添加元素。Reload中进行list的循环，将list的所有元素采用字符串拼接展示所有内容。为每个list元素的展示单元添加id（itemDeatil+itemVO.id），对这个控件添加click函数。获取VO.id并作为跳转连接的参数。
+标签中写入data-id，获取时采用$（#控件id）.data(“id”)
+ 
+10.商品详情前端。使用label标签展示。Ajax请求接收url中的id参数（getParam），获取itemVO，使用reloadDom函数。reloadDom刷新label的值。
+Getparam主要使用了location.search获取url的请求参数。
+Reload刷新一般标签采用$(“#标签id”).text(具体数值)，
+刷新img采用.attr(“属性”,具体值)
+ 
+11.交易模块。建立交易模型。创建数据库表结构。使用mybatis生成mapper和DO。创建service，createorder服务校验入参，实现itemservice的decreasestock并使用，创建orderModel。转化成DO并插入数据库。Itemservice实现increaseStock，增加销量并返回itemModel
+decreaseStock体现了分表的优势，减库存需要对item_stock加锁，而数据浏览的item表不受影响。
+DecreaseStock的返回值代表了受影响的行数，通过行数判断库存是否足够，这样比（查库存+减数据）少了一次数据库访问。
+后端BigDecimal与数据段double的转化：new BigDecimal()和doubleValue()
+ 
+12.生成order主键id。前8位为时间，中间8位新建数据库表sequence，从中读取自增的数字作为唯一标示,并更新数据为增加后的值。后2位为分表位，暂定00。
+读取时间LocalDateTime.format(DateTimeFormatter.ISO_DATE).replcae(“-”,””)
+CreateOrder加上了事务标签，而生成id采用了读取数据库sequence表的方式也加上事务标签，因此create回滚会导致读取id操作被回滚，id不会更新。而实际上id应做到即使create回滚，也应该使用新id。因此获取id的事务注解加上属性propagation.requires_new,表示该事务为新开事务，完成后直接提交，不会被上层事务的回滚影响。
+存在问题，当唯一标示超过6位时应当循环。暂时不作处理。
+ 
+13.下单的前端实现为按钮，点击事件为发送ajax请求。下单的controller获取请求参数，获取session中的attribute“LOGIN_USER”的userModel，”IS_LOGIN”，对未登录做抛出异常处理。通过则调用service处理。
+ 
+14.建立秒杀模型。确定promoModel字段，数据库中创建promo表。使用mybatis生成对应DO和DAO。
+ 
+15.建立promoservice。通过itemid获取promomodel，为mapper添加对应实现。根据开始时间判断活动是否开始，设置model的status。
+Itemmodel聚合了模型promomodel，itemservice的getitem添加了通过promoservice获取promomodel并添加到itemmodel的操作。为itemvo添加有关promomodel的字段而非model（体现层层分离）。Itemcontroller的convertfromitemmodel添加了对promomodel的处理。
+判断秒杀活动的时间使用了joda的isAfterNow和isBeforeNow
+ 
+16.秒杀活动前端。商品详情添加秒杀倒计时和秒杀价格。默认函数添加setInternal每秒调用reloadDom。ReloadDom根据VO的status判断是否显示秒杀信息。若未开始则添加显示倒计时。
+隐藏标签$(“#标签id”).hide()
+按钮无效化$(“#标签id”).attr(“disable”,true)
+为了前端显示需要将VO的日期改为string类型:
+DateTime->String DateTime.toString(DateTimeFormat.forPattern(“yyyy-MM-dd HH:mm:ss”))
+前端String->date (new Date(string.replace(new RegExp(“-”,”gm”), “/”))).getTime()
+ 
+17.秒杀活动下单服务。OrderModel添加promoId，数据库中order表添加promo_id，修改对应的DO和mapper。前端传入promoid，service添加校验入参和根据活动添加price。
+数据库添加新的数据栏需要修改：
+Mapper.xml中column的声明，base_column_list,insert,insertselective等函数的参数
+DO中添加新的字段和get set函数
+Controller中对promoid这种可有可无的数据可以在@RequestParam中添加required=false表示可选参数。
+ 
+18.云端部署。打包jar包，数据库并上传。添加外挂配置文件。
+向pom中添加spring-boot-maven-plugin，使用mvn clean package打包成jar包上传。
+2.在命令行使用mysqldump -uroot -proot –databases bargainsdash > bargainsdash.sql备份数据库，上传。使用mysql -uroot -proot < //tmp/bargainsdash.sql添加至数据库。
+3.新建application.properties，运行时添加参数—spring.config.addtion-location=配置文件路径。
+4.编写一个shell脚本，并使用&来后台运行。
+ 
+19.Spring内置Tomcat配置调整
+server.tomcat.accept-count：等待队列长度。默认100->1000
+server.tomcat.max-connections:最大可被连接数。默认10000
+server.tomcat.max-threads:最大工作线程数，默认200->400
+server.tomcat.min-spare-threads:最小工作线程数，默认10->100
+测试信息：1000线程*50次
+测试结果：平均2117ms 吞吐181.7/sec
+服务器top -H显示mysqld进程为主要耗时操作。
+ 
+20.定制化内嵌tomcat开发
+KeepaliveTimeOut：多少毫秒后不响应的断开keepalive连接
+MaxKeppAliveRequests:多少次请求后keepalive断开失效
+使用新建WebServerConfiguration实现WebServerFactoryCustomizer<ConfigurableWebServerFactory>，重写customize，将connector转型为http11NioProtocol，并重新设置keepalivetimeout和MaxKeepAliveRequests
+ 
+21.建立nginx集群
+开放阿里云端口：安全组配置->添加配置->添加端口和允许的ip。
+安装java：上传jdk.rpm，使用rpm -ivh jdk….rpm和mysql
+发送文件夹scp –r //var/www root@[ip]:/var/
+更新数据库权限：grant all privileges on *.* to root@'%' identified by 'root';
+flush privileges;
+安装OpenResty.解压tar -zxvf [src]
+安装前下载yum install pcre-devel openssl-devel gcc curl
+./configure
+make编译
+sbin/nginx -c conf/nginx.conf启动nginx服务
+修改conf/nginx.conf添加location的alias
+sbin/nginx -s reload无缝重启
+修改conf/nginx.conf添加upstream backendserver
+设置动态请求location为proxy pass：
+location / {
+		proxy_pass http://backend_server;
+		proxy_set_header Host $http_host:$proxy_port;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}完成动静分离
+开启tomcat验证，在应用服务器application.properties中添加：
+server.tomcat.accesslog.enabled=true
+server.tomcat.accesslog.directory=/var/www/bargainsdash/tomcat
+server.tomcat.accesslog.pattern=%h %l %t "%r" %s %b %D（其中h表示请求host，l默认为-，t时间戳“r”表示请求路径s状态码b返回请求字节数D处理时长）
+修改代理服务器与应用服务器为长连接：
+进入conf/nginx.conf修改upstream backend_server添加keepalive 30修改location /添加proxy_http_version 1.1;proxy_set_header Connection “”;
+并发数： 1600+
+
+22.使用Redis作为session的会话管理
+引入相关依赖。wget http://download.redis.io/releases/redis-5.0.7.tar.gz
+修改权限：chmod -R 777 redis[TAB]
+解压：tar -zxvf redis[TAB]
+生成配置：cd redis[TAB]
+编译：make(编译失败则使用yum install gcc)
+绑定内网地址：vim redis conf;bind [私网IP];cd src;
+安装：make install
+启动：./redis-server &//src/redis-server ./redis.conf &
+进入Redis客户端：./redis-cli
+同时向应用服务器中application.properties添加spring.redis.host为[数据库私网IP]
+向JAR添加:
+spring.redis.host=127.0.0.1
+spring.redis.port=6379
+spring.redis.database=10
+spring.redis.jedis.pool.max-active=50
+spring.redis.jedis.pool.min-idle=20
+ 
+23.使用Token作为sessionid
+不使用cookie的原因是将来可能应用到移动端或者其他框架等，并非都支持cookie
+Usercontroller中加入RedisTemplate，生成UUID后使用Template.opsForValue().set(uuidToken,userModel)放到redis中，使用redisTemplate.expire(uuidToken, 1, TimeUnit.HOURS);设置超时，返回前端。
+前端login.html获取并存入localStorage：var token = data.data; window.localStorage["token"] = token;
+getitem.html从localStorage中获取并加在url后依此验证登陆。
+Ordercontroller使用httpServletRequest.getParameterMap().get("token")[0]获取token，使用redisTemplate.opsForValue().get(token)获取usermodel。
+（今日还完成了mysql和redis的开机自启mysql使用systemctl enable mariadb.service而redis需要将redis_init_script放到//etc/init.d/并修改其中参数，chkconfig –add redis）
+ 
+24.使用Redis作为商品信息缓存数据库。
+Application.properties中配置redis的host，port，database。配置jedis连接池max-active,min-idle。
+itemController使用redisTemplate.opsForValue().get("item_" + id)从redis获取itemModel，没获取到则从itemService获取并set存入redis，设置超时时间expire(key,teimout,unit)
+RedisConfig使用bean注解redisTemplate构造方法，传入RedisConnectionFactory，使用set方法，然后setKeySerializer(stringRedisSerializer)，setValueSerializer(jackson2JsonRedisSerializer)，jackson2JsonRedisSerializer.setObjectMapper(objectMapper)，
+objectMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL和registerModule(simpleModule)，simpleModule.addSerializer(DateTime.class, new JodaDateTimeJsonSerializer())和addDeserializer(DateTime.class, new JodaDateTimeJsonDeserializer());
+JodaDateTimeJsonSerializer和JodaDateTimeJsonDeserializer均由自己编写，重写序列化方法。
+
+25.使用本地缓存。
+Pom.xml导入guava包。
+新建cacheserviceImpl，使用cachebuilder.newbuilder.initalcapacity.maximumsize.expireafterwrite.build创建一个Cache，编写set和get方法，使用的put和getifpresent。（不使用ConcurrentHashMap是因为需要长久保存）
+
+26.使用Nginx proxy cache缓存。(由于文件系统使用磁盘，性能反而降低了，因此弃用)
+Nginx.conf声明cache缓存节点的内容。Proxy_cache_path /usr/local/openresty/nginx/tmp_cache levels=1:2 keys_zone=tmp_cache:100m inactive=7d max_size=10g;#使用多级目录降低寻址的消耗。开启100M内存空间作为tmp_cache。生命周期7天，文件系统最多10G。Location /的路由中加入proxy_cache_key $uri;proxy_cache_valid 200 206 304 7d;
+
+27.使用Nginx的shared_dict。
+nginx.conf添加lua_shared_dict my_cache 128m;
+Lua目录下新建itemsharedic.lua。
+function get_from_cache(key)
+	local cache_ngx = ngx.shared.my_cache
+	local vlue = cache_ngx:get(key)
+	return value
+end
+
+function set_to_cache(key,value,exptime)
+	if not exptime then
+		exptime = 0
+	end
+	local cache_ngx = ngx.shared.my_cache
+	local succ,err,forcible = cache_ngx:set(key,value,exptime)
+	return succ
+end
+
+local args = ngx.req.get_uri_args()
+local id = args["id"]
+local item_model = get_from_cache("item_"..id)
+if item_model == nil then
+	local resp = ngx.location.capture("/item/get?id="..id)
+	item_model = resp.body
+	set_to_cache("item_"..id,item_model,1*60)
+end
+ngx.say(item_model)
+————————————————————————
+缓存一分钟。
+nginx.conf添加
+location /luaitem/get{
+	default_type "application/json";
+	content_by_lua_file ../lua/itemsharedic.lua;
+}
+————————————————————————
+BUG方法：cd logs; tail -f error.log
+问题：脏读不敏感
+
+28.Nginx对Redis支持，使用Nginx服务器直接访问Redis服务器。
+lua下新建itemredis.lua：
+local args = ngx.req.get_uri_args()
+local id = args["id"]
+local redis = require "resty.redis"
+local cache = redis:new()
+local ok,errr = cache:connect("[Redis服务器内网IP]","6379")
+local item_model = cache:get("item_"..id)
+if item_model == ngx.null or item_model == nil then
+	local resp = ngx.location.capture("/item/get?id="..id)
+	item_model = resp.body
+end
+
+ngx.say(item_model)
+————————————————————————————
+修改nginx.conf，将content_by_lua_file改为itemredis.lua
+
+29.实现静态请求CDN（CDN系列内容未完成，需要购买CDN和域名完成）
+购买阿里云CDN服务，购买域名，在加速域名中填入域名，IP为代理服务器公网IP。
+配置CNAME:首先在阿里云的域名管理中添加解析规则，添加记录，类型为CNAME地址，域名为域名，记录值为配置CDN服务生成的CNAME。
+
+30.交易模型优化。验证阶段。item/user进入Redis。
+修改itemservice和itemserviceImpl，添加getItemByIdInCache。
+修改userservice和userserviceImpl，添加getUserByIdInCache。
+修改OrderServiceImpl，添加新增方法。
+
+31.交易模型优化。减库存阶段。库存存入Redis。
+修改PromoServiceImpl，添加publishpromo，实现通过promoid获取活动，查询到商品，将库存存入redis。
+修改ItemController，添加对应的映射函数来执行存入库存的操作。
+
+32.数据同步。减库存阶段。实现Redis和MySQL的数据同步（减库存）。
+数据库服务器下载RocketMQ。修改runbroker.sh的JVM启动参数和tools.sh的文件路径。启动nameserver。启动broker。创建topic。
+
+application.properties添加mq.nameserver.addr和mq.topicname。
+maven添加RocketMQ-client依赖包。
+
+新建mqproducer，加上component注解。
+通过Value(${[变量名]})注解引入application.properties的变量。
+新建init方法，加上PostConstruct注解。使用DefaultMQProducer构造生产者对象，setNamesrvAddr设置nameserverIP。start方法启动。
+新建asyncReduceStock方法，创建bodyMap存放数据(itemId，amount)。新建Message对象指定topicname，将经过json序列化的对象作为消息体传入JSON.toJSON(bodyMap).toString().getBytes(Charset.forName("utf-8"))。使用producer.send将消息发出。
+
+新建mqconsumer，加上component注解。使用DefaultMQConsumer构造消费者对象。setNamesrvAddr设置nameserverIP。subscibe设置topicname，全部消息。registerMessageListener注册监听，重写consumeMessage，获取列表中的message，通过JSON.parseObject(message, Map.class)获取map对象。将amont和itemid作为stockDOMapper.decreaseStock参数更新MySQL。直接返回SUCCESS。
+
+OrderServiceImpl中redis减库存(redisTemplate.opsForValue.increment)后获得结果，成功则调用producer的asyncReduceStock发出消息。失败回滚。
+
+33.数据同步。分布式事务问题（减库存阶段。数据库和Redis缓存回滚不一致）：
+问题1：redis减库存之后若订单入库失败则会导致回滚，而redis无法因为订单入库回滚甚至消费端已经扣减库存。（库存和订单入库的同步性）
+优化：将减库存的异步消息放在订单入库操作之后，消息发送失败则回滚。
+
+问题2：若步骤执行完成，但是spring在提交createorder这个Transactional函数时失败，异步消息无法撤回。
+优化：使用TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter()。重写afterCommit方法，这个方法会在最近的事务提交后（即createorder）执行。在afterCommit中发送异步消息。
+
+问题3：若异步消息发送失败由于在afterCommit中无法回滚，则redis与数据库数据不一致。
+事务型消息生产者可以选择是否回滚，解决数据库回滚而redis不回滚的问题。
+
+34.数据同步。分布式事务问题（减库存阶段。数据库和Redis缓存回滚不一致）：
+MqProducer添加TransactionMQProducer实例，同样设置nameserver：setNamesrvAddr，启动：start。但是需要设置事务监听：setTransactionListener(new TransactionListener())并重写TransactionListener的两个函数：executeLocalTransaction（执行sendMessageInTransaction时调用），checkLocalTransaction（不返回ROLLBACK或COMMIT时调用）。
+
+新建函数transactionAsyncReduceStock，将参数以Map形式传入，新建Message对象（topicName,tags,数据JSON.toJSON(bodyMap).toString().getBytes(Charset.forName("utf-8"))）
+调用transactionMQProducer的sendMessageInTransaction发送消息，获取执行结果为ROLLBACK还是COMMIT。
+
+sendMessageInTransaction调用executeLocalTransaction，executeLocalTransaction执行函数获得message和args（事务消息需要和执行业务需要）。将args的执行参数作为orderservice的createorder参数，成功则返回COMMIT状态。失败返回ROLLBACK状态。
+注：createorder涉及（验证，减库存Redis，订单入库MySQL）。
+
+ordercontroller调用transactionAsyncReduceStock即可完成createorder和发送异步消息。下单失败则返回错误信息。
+
+问题：怎么解决executeLocalTransaction向sendMessageInTransaction发送的COMMIT或者ROLLBACK状态消息失败，导致的数据不一致。
+这也是checkLocalTransaction存在的意义，若executeLocalTransaction未传回消息，则间隔地调用executeLocalTransaction函数。
+
+35.交易流水日志（解决下单接口停滞或发送消息失败导致无法同步）
+使用库存流水，让check函数去查看库存流水状态，根据状态决定回滚还是提交异步消息。
+
+设计库存流水数据库模型，设计DO和Mapper。ordercontroller调用transactionasyncreducestock时就创建库存流水。在orderserviceImpl订单和减库存之后设置状态为2。在createorder的catch异常内设置为3。check操作内按照这个状态选择返回ROLLBACK或COMMIT。
+
+问题：引入交易流水日志是因为引入Redis，要保证数据一致。流水日志要进入数据库MySQL一次，那么与没引入Redis相比不是性能没有提升？
+解答：因为没有引入Redis，更新库存操作涉及itemId的行锁，而流水事务的行锁以createorder为单位，或者说以stockLogId为单位，大大降低了并发压力。
+（未实现）
+问题：Redis不可用怎么办。
+取消这次操作，或者继续完成操作。宁可少卖不可超卖：取消操作，因为继续操作导致数据库扣减而redis不扣减，导致数据库少于redis，产生超卖。
+问题：由于createorder迟迟不返回，check操作一直处于返回UNKNOWN。
+设置超时释放。
+
+36.售罄标示。（解决售罄后仍需走完下单流程的资源浪费）
+实现库存售罄标示，使得售罄后不去操作后续流程。因此需要在售罄后通知各系统售罄。同时
+为避免一直售罄不可用，要允许补货也就是去掉售罄标示。
+售罄标示在扣减库存中为0时设置一个redis参数，当进入createorder则首先判断是否售罄。
+
+问题1：秒杀活动接口会被脚本攻击，只要知道token就可以不断发送http请求。
+问题2：秒杀接口内进行活动，用户，商品校验，代码冗余度高
+
+37.秒杀令牌和秒杀。（解决脚本攻击问题）
+将验证用户信息，商品信息，活动信息操作移入promoservice的generatesecondkilltoken中，生成一个UUID令牌并存入redis。ordercontroller验证令牌，通过后进行下单。
+前端代码改进，在下单前进行generatetoken请求，获得令牌后再下单。
+
+问题：
+令牌生成没有限制，若大量请求出现则都会调用生成令牌接口，影响性能。
+
+38.秒杀大闸。（解决令牌数量过多）
+在刷新库存函数中设置令牌数量（库存的5倍），存入Redis中。
+在活动的生成令牌函数中读取令牌数量，若不够则生成令牌失败。
+
+问题1：商品数量多导致浪涌流量，系统仍然难以应对
+问题2：由于令牌以商品和活动为单位生成，因此无法限制多商品，多库存的订单。
+
+39.队列泄洪【限制最大同时运行数】
+本地队列：将队列维护在本地内存中。
+分布式队列：将队列维护在外部Redis当中。
+分布式队列的优势在于可以准确管理整个集群的状态。本地队列的优势在于没有网络消耗，高性能，没有依赖Redis，高可用。
+
+在ordercontroller中加入线程池，限制单个应用服务器并发处理请求的数量。
+
+40.验证码
+创建新文件，实现验证码的工具类。
+新增生成验证码接口，实现生成验证码并获取，存入Redis，图片使用输出流存入HttpServletResponse。
+令牌接口校验验证码。
+前端代码新建按钮和输入框，默认隐藏（display : none）,下单按钮添加显示逻辑。将所有下单逻辑放入验证按钮。
+
+
+41.令牌桶限流【限制每秒时间进入的请求数】
+定义RateLimiter，createorder中调用acquire方法，小于则抛出系统繁忙异常。限制每秒流量为300。
+
+RateLimiter限制原理为令牌桶算法，根据时间获取令牌放送。流程为获取当前时间，查看当前时间是否还有令牌，有则分配，没有则进行查看下一秒是否有令牌。实际上是通过设置【下个线程可获取令牌时间】，而线程则是根据自身时刻与【这个变量】比较，未达到则等待，达到则支付/预支付，根据【需要令牌-当前可得】来增加【下个线程可获得令牌时间】（当前可得=自身时刻-【下个线程可获取令牌时间】/设置令牌的时间间隔）。
+由于预支付的存在，这个算法有一定超前性。
+
+42.防刷技术。
+限制IP/设备请求数。
+为设备生成唯一标示。（设备指纹）
+对设备进行可疑性判断。--根据设备指纹生成凭证，由服务器使用凭证服务器验证。
+
+
+
